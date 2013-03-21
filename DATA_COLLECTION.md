@@ -17,6 +17,8 @@ Stats that we want to collect
 ** per domain, with 1st/3rd correlation?
 * Count accepted and rejected cookies
 ** per domain, etc?
+* Collect cookie data only for the top N domains visited
+** May need to query places database for 'frecency' for this to work 
 
 Stats that require a closer look at privacy
 ===========================================
