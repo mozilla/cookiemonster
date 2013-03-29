@@ -30,7 +30,7 @@ Data that we plan to collect
 * Number of login cookies set and read for popular services (e.g., Google/Twitter/Facebook)
 * Total counts of each type of cookies set
 * A histogram of cookie expiration times
-* Preferences like <pre>network.cookie.behavior</pre> that affect cookies.
+* Preferences like network.cookie.behavior that affect cookies.
 * Extensions such as Ghostery or AdBlockPlus that affect cookies.
 * Version of Firefox
 
@@ -40,6 +40,120 @@ Data we will not collect
 ========================
 * Full URL where cookies are set or read. Domains will be limited to eTLD+1.
 * Any data during Private Browsing Mode.
+
+Proposed data format
+====================
+We consider two formats, one event-based (aggregation happens on the server side) and one where some aggregation happens at the client.
+
+Here is an example blob for the event-based model:
+<pre>
+daily_dump: {
+  // We want to be able to correlate events belonging to the same user across the length of the study. This is because
+  // we are more interested in questions like how many users deleted all their cookies this week, as opposed to how many 
+  // times did all cookies get deleted this week.
+  user_id: string,
+  // Time range in seconds since epoch that this JSON object represents
+  begin_time: uint_64,
+  end_time: uint_64,
+  // Version of Firefox
+  version: string,
+  // These correspond to Set-Cookie and Cookie HTTP headers, as observed by http-on-examine-response and http-on-modify
+  cookie_events: {
+    // Timestamps are useful to correlate with actions
+    timestamp: uint_64,
+    // Get or set?
+    mode: int,
+    // How many cookies were read or set in this request?
+    count: int,
+    // If we have any logic to detect login or tracking cookies, we should store the results as an enum here. The length 
+    // should be the same as the count field.
+    types: { type: int },
+    // For Set-Cookie events, the lifetime in seconds of the cookies that are set. The length of this field is the same 
+    // as the count field.
+    expirations: { type: int },
+    // eTLD + 1, no URL params
+    domain: string,
+    // If this is a third-party cookie, the first-party domain
+    referrer: string
+  },
+  // These correspond to cookie accept and reject events, as observed from nsICookieService. If we can also figure out 
+  // when cookies are cleared, we can capture that in this stanza as well.
+  cookie_service_events: {
+    timestamp: uint_64,
+    // An enum for accept or reject
+    type: int
+  }
+  // Every time a user clicks a social widget, we add one of these
+  social_events: {
+    // Timestamps are useful to correlate with other events. Can we tie this to a cookie event?
+    timestamp: uint_64,
+    // Network, e.g. Facebook Like, Twitter RT, Google+ +1
+    network: string
+  }
+  // These are filled in when the object is packaged up for sending
+  prefs: {
+    // When did we read these prefs?
+    timestamp: uint_64,
+    // e.g., network.cookie.behavior
+    name: string,
+    // Not every pref value is a string, but all can be represented as strings
+    value: string
+  }
+  // we are only interested in addons that affect cookie behavior (AdBlockPlus, Ghostery)
+  extensions: {
+    id: string
+  }
+}
+</pre>
+
+Here is an example JSON blob if we do some aggregation locally.
+<pre>
+daily_dump: {
+  // The user id, so we can correlate across days
+  user_id: string,
+  // The time range represented by this object
+  begin_timestamp: uint_64,
+  end_timestamp: uint_64,
+  cookie_events: {
+    // Set or read?
+    mode: int,
+    // How many?
+    count: int
+    // The cookie domain
+    domain: string;
+    // The referring domain (different if third party)
+    referrer: string,
+  },
+  cookie_lifetimes: {
+    // Pick some likely buckets, e.g. 1 day, 1 month, 1 year
+    bucket_index: int,
+    // How many cookies belonged to this bucket?
+    count: int
+    // Do we care what kind of cookies they are (first vs. third?) If so, it will be difficult to slice this data.
+  },
+  social_events: {
+    // Clicks on social widgets
+    network: string,
+    count: int
+  }
+  prefs: {
+    // Same as above
+  }
+  extensions: {
+    // Same as above
+  }
+}
+</pre>
+
+Obviously, aggregating on the client side is more compact, but less resilient to error if we make a mistake, e.g. choosing the right bucket sizes for cookie lifetimes. However, we still need to aggregate on the server no matter which format we choose.
+
+Server requirements
+===================
+The server must be able to process JSON HTTP POST requests over SSL. We will most likely write data analysis scripts in node.js since all event objects are JSON.
+
+Data storage requirements
+=========================
+All data will be stored at Mozilla. Any data with user ids must not be released publicly, and must not be stored indefinitely. Aggregated data such as global distribution of cookie domains by volume, can and should live forever.
 
 Privacy concerns
 ================
@@ -60,14 +174,11 @@ We have two main options for sending data back to Mozilla: using TestPilot and u
 
 Time estimates
 ==============
-* Using micropilot alone
-* embedding with TestPilot
-    * TestPilot is unmaintained and disabled as there are some major bugs that will require deep Gecko hacking and testing to figure out. *UNKNOWN time frame*
-* Contributing to Collusion
+* Using micropilot alone (4 weeks)
+* embedding with TestPilot (indefinite)
+    * TestPilot is unmaintained and disabled as there are some major bugs that will require deep Gecko hacking and testing to figure out.
+* Contributing to Collusion (months)
     * The next release of Collusion is planned for 2nd quarter of 2013.
     * Collusion has a mechanism to send data back to Mozilla.
     * The current data format is documented here: https://github.com/mozilla/collusion/blob/c2_fresh_start/doc/data_format.v1.1.md 
     * Collusion has tens of thousands of users, but many more can be conjured up due to the publicity it already has. A marketing effort could provide this.
-
-
-This document was last updated on 2013-03-28
