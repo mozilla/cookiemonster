@@ -1,9 +1,17 @@
 {
-    "name": "cookiemonster",
-    "license": "MPL 2.0",
-    "author": "",
-    "version": "0.1",
-    "fullName": "cookiemonster",
-    "id": "jid1-pUAYstdUSAAs4w",
-    "description": "a basic add-on"
+  "name": "cookiemonster",
+  "license": "MPL 2.0",
+  "author": "",
+  "version": "0.1",
+  "fullName": "cookiemonster",
+  "id": "jid1-pUAYstdUSAAs4w",
+  "description": "a basic add-on",
+  "dependencies": [
+    "micropilot"
+  ],
+  "volo": {
+    "dependencies": {
+      "packages/micropilot": "github:gregglind/micropilot/v0.8"
+    }
+  }
 }
