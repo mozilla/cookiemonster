@@ -45,20 +45,36 @@ Proposed data format
 ====================
 We consider two formats, one event-based (aggregation happens on the server side) and one where some aggregation happens at the client.
 
-Here is an example blob for the event-based model:
+Micropilot uploads a bunch of metadata (FF version, extensions, userid) along with a events array every time the upload function is called. In the events array, we store:
 <pre>
-daily_dump: {
+  event: {
+    // One of "cookie-event", "cookie-service-event", "social-event", "pref", or "metadata"
+    name: string,
+    // One of the event objects listed below. Each object has its own timestamp.
+    obj: [ Object ]
+  }
+</pre>
+
+The "metadata" event records information about the upload itself that we want in addition to the Micropilot metadata:
+<pre>
+metadata: {
   // We want to be able to correlate events belonging to the same user across the length of the study. This is because
-  // we are more interested in questions like how many users deleted all their cookies this week, as opposed to how many 
-  // times did all cookies get deleted this week.
-  user_id: string,
+  // we are more interested in questions like how many users deleted all their cookies this week, as opposed to how 
+  // many times did all cookies get deleted this week. Micropilot actually records this for us.
+  personid: string,
   // Time range in seconds since epoch that this JSON object represents
   begin_time: uint_64,
   end_time: uint_64,
-  // Version of Firefox
-  version: string,
+  // Version of Firefox, also computed by Micropilot
+  version: string
+}
+</pre>
+
+The "cookie-event" and "cookie-service-event" objects record get and set cookie events, along with accept and reject events according to the cookie manager.
+
+<pre>
   // These correspond to Set-Cookie and Cookie HTTP headers, as observed by http-on-examine-response and http-on-modify
-  cookie_events: {
+  cookie_event: {
     // Timestamps are useful to correlate with actions
     timestamp: uint_64,
     // Get or set?
@@ -98,10 +114,6 @@ daily_dump: {
     name: string,
     // Not every pref value is a string, but all can be represented as strings
     value: string
-  }
-  // we are only interested in addons that affect cookie behavior (AdBlockPlus, Ghostery)
-  extensions: {
-    id: string
   }
 }
 </pre>
