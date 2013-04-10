@@ -65,8 +65,8 @@ metadata: {
   // Time range in seconds since epoch that this JSON object represents
   begin_time: uint_64,
   end_time: uint_64,
-  // Version of Firefox, also computed by Micropilot
-  version: string
+  // Version of data format. This number must change when any of the event formats change.
+  version: int
 }
 </pre>
 
