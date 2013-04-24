@@ -11,7 +11,8 @@ XPCOMUtils.defineLazyServiceGetter(Services, "cookiemgr",
                                    "@mozilla.org/cookiemanager;1",
                                    "nsICookieManager2");
 function testParseCookie() {
-  const kATTRIBUTES = { "expires": 0, "path": 0, "domain": 0, "max-age": 0 };
+  // Set the cookie, then check the record
+  // const kATTRIBUTES = { "expires": 0, "path": 0, "domain": 0, "max-age": 0 };
 }
 
 exports["test main async"] = function(assert, done) {
