@@ -88,6 +88,16 @@ function testReadCookie(assert) {
 
 // Test that when we reject cookies, we get rejection events
 function testRejectCookie(assert) {
+  // Reject all cookies
+  Services.prefs.setIntPref("network.cookie.cookieBehavior", 2);
+  let aUrl = "http://localhost:4444/setcookie";
+  let expectedEvents = [{ eventType: kEvents.READ_COOKIE,
+                          count: 1,
+                          // This seems like a bug
+                          referrer: null,
+                          domain: "localhost" }];
+  return doNav(aUrl).
+    then(function() { return testMonitor(assert, expectedEvents); });
 }
 
 exports["test main async"] = function(assert, done) {
