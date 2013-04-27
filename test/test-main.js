@@ -3,6 +3,7 @@ var main = require("main");
 const kEvents = main.kEvents;
 const { Cc, Ci, Cu, Cr } = require("chrome");
 const tabs = require("sdk/tabs");
+const prefs = require("sdk/preferences/service");
 /*
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
@@ -91,8 +92,14 @@ function testReadCookie(assert) {
 // Test that when we reject cookies, we get rejection events
 function testRejectCookie(assert) {
   // Reject all cookies
-  prefs.set("network.cookie.cookieBehavior", 2);
-  console.log("prefs", prefs.get("network.cookie.cookieBehavior", 0));
+  console.log("testRejectCookie");
+  //prefs.set("network.cookie.cookieBehavior", 2);
+  //console.log("prefs", prefs.get("network.cookie.cookieBehavior", 0));
+  const prefService = Cc["@mozilla.org/preferences-service;1"].
+                  getService(Ci.nsIPrefService);
+  const prefSvc = prefService.getBranch(null);
+  prefSvc.setIntPref("network.cookie.cookieBehavior", 2);
+  console.log("pref", prefSvc.getIntPref("network.cookie.cookieBehavior"));
   let aUrl = "http://localhost:4444/setcookie";
   let expectedEvents = [{ eventType: kEvents.COOKIE_REJECTED,
                           domain: "localhost" }];
@@ -108,7 +115,7 @@ exports["test main async"] = function(assert, done) {
   httpServer.start(4444);
   testSetCookie(assert).
     then(function() { return testReadCookie(assert); }).
-    //then(function() { return testRejectCookie(assert); }).
+    then(function() { return testRejectCookie(assert); }).
     then(function() {
       httpServer.stop(done);
       done();
