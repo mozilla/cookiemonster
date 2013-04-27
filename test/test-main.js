@@ -4,7 +4,7 @@ const kEvents = main.kEvents;
 const { Cc, Ci, Cu, Cr } = require("chrome");
 const tabs = require("sdk/tabs");
 const prefs = require("sdk/preferences/service");
-/*
+
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 XPCOMUtils.defineLazyServiceGetter(Services, "cookies",
@@ -13,7 +13,7 @@ XPCOMUtils.defineLazyServiceGetter(Services, "cookies",
 XPCOMUtils.defineLazyServiceGetter(Services, "cookiemgr",
                                    "@mozilla.org/cookiemanager;1",
                                    "nsICookieManager2");
-*/
+
 let { nsHttpServer } = require("sdk/test/httpd");
 let monitor = main.monitor;
 const { defer, resolve, promised } = require("sdk/core/promise");
@@ -107,6 +107,23 @@ function testRejectCookie(assert) {
     then(function() { return testMonitor(assert, expectedEvents); });
 }
 
+// Test that we notice when a single cookie is deleted
+function testClearSingleCookie(assert) {
+  console.log("testClearSingleCookie");
+  let expectedEvents = [{ eventType: kEvents.COOKIE_DELETED,
+                          domain: "localhost" }];
+  Services.cookiemgr.remove("localhost", "cookie1", "/", true);
+  return testMonitor(assert, expectedEvents);
+}
+
+// Test that we notice when all cookies are deleted
+function testClearCookies(assert) {
+  console.log("testClearCookies");
+  let expectedEvents = [{ eventType: kEvents.ALL_COOKIES_DELETED }];
+  Services.cookiemgr.removeAll();
+  return testMonitor(assert, expectedEvents);
+}
+
 exports["test main async"] = function(assert, done) {
   console.log("async test running");
   assert.pass("async Unit test running!");
@@ -115,7 +132,8 @@ exports["test main async"] = function(assert, done) {
   httpServer.start(4444);
   testSetCookie(assert).
     then(function() { return testReadCookie(assert); }).
-    then(function() { return testRejectCookie(assert); }).
+    //then(function() { return testClearSingleCookie(assert); }).
+    then(function() { return testClearCookies(assert); }).
     then(function() {
       httpServer.stop(done);
       done();
