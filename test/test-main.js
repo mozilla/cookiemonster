@@ -16,6 +16,7 @@ let { nsHttpServer } = require("sdk/test/httpd");
 let monitor = main.monitor;
 const { defer, resolve, promised } = require("sdk/core/promise");
 
+// Tests that we recorded the events that we expected.
 function testMonitor(assert, expectedEvents) {
   return monitor.upload("http://example.com", {simulate: true}).
     then(function(response) {
@@ -40,14 +41,12 @@ function testMonitor(assert, expectedEvents) {
       deferred.resolve(true);
       return deferred.promise;
     });
-    //then(null, function(e) { return resolve(console.log("couldn't clear", e)); });
 }
 
 // Returns a promise that resolves when the tab is open with the given URL.
 function doNav(aUrl) {
   let deferred = defer();
   tabs.on("ready", function() {
-    console.log("tab is ready");
     deferred.resolve(true);
   });
   tabs[0].url = aUrl;
@@ -68,15 +67,16 @@ function testSetCookie(assert) {
                           maxage: 60,
                           count: 1,
                           referrer: "localhost",
-                          domain: "localhost" }];
-  aUrl = "http://localhost:4444/setcookie";
+                          domain: "localhost" },
+                        { eventType: kEvents.COOKIE_ADDED }];
+  let aUrl = "http://localhost:4444/setcookie";
   return doNav(aUrl).
     then(function() { return testMonitor(assert, expectedEvents); });
 }
 
 // Test that when cookies get sent, we see a READ_COOKIE event
 function testReadCookie(assert) {
-  aUrl = "http://localhost:4444/";
+  let aUrl = "http://localhost:4444/";
   let expectedEvents = [{ eventType: kEvents.READ_COOKIE,
                           count: 1,
                           // This seems like a bug
@@ -84,6 +84,10 @@ function testReadCookie(assert) {
                           domain: "localhost" }];
   return doNav(aUrl).
     then(function() { return testMonitor(assert, expectedEvents); });
+}
+
+// Test that when we reject cookies, we get rejection events
+function testRejectCookie(assert) {
 }
 
 exports["test main async"] = function(assert, done) {
@@ -94,6 +98,7 @@ exports["test main async"] = function(assert, done) {
   httpServer.start(4444);
   testSetCookie(assert).
     then(function() { return testReadCookie(assert); }).
+    then(function() { return testRejectCookie(assert); }).
     then(function() {
       httpServer.stop(done);
       done();
