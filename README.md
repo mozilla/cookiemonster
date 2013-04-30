@@ -9,6 +9,7 @@ For developers: http://scottchacon.com/2011/08/31/github-flow.html
 3. ln -s hooks .hooks
 4. git checkout -b your-branch-name
 5. edit your files and add them with git add
-6. git commit -m "your descriptive message"
-7. git push origin your-branch-name
-8. submit a pull request from your-branch-name to master
+6. test with cfx test
+7. git commit -m "your descriptive message"
+8. git push origin your-branch-name
+9. submit a pull request from your-branch-name to master
