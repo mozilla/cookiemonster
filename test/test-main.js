@@ -125,6 +125,37 @@ function testClearCookies(assert) {
   return testMonitor(assert, gEvents);
 }
 
+// Test that we record preferences accurately.
+function testPrefs(assert) {
+  console.log("testPrefs");
+  let type = kEvents.PREFERENCE;
+  gEvents = gEvents.concat([
+    {eventType: type, name: "browser.privatebrowsing.autostart", value: false},
+    {eventType: type, name: "network.cookie.cookieBehavior", value: 3},
+    {eventType: type, name: "network.cookie.lifetimePolicy", value: 0},
+    {eventType: type, name: "privacy.sanitize.sanitizeOnShutdown", value: false},
+    {eventType: type, name: "privacy.clearOnShutdown.cache", value: true},
+    {eventType: type, name: "privacy.clearOnShutdown.cookies", value: true},
+    {eventType: type, name: "privacy.clearOnShutdown.downloads", value: true},
+    {eventType: type, name: "privacy.clearOnShutdown.formdata", value: true},
+    {eventType: type, name: "privacy.clearOnShutdown.history", value: true},
+    {eventType: type, name: "privacy.clearOnShutdown.offlineApps", value: false},
+    {eventType: type, name: "privacy.clearOnShutdown.passwords", value: false},
+    {eventType: type, name: "privacy.clearOnShutdown.sessions", value: true},
+    {eventType: type, name: "privacy.clearOnShutdown.siteSettings", value: false},
+    {eventType: type, name: "privacy.cpd.cache", value: true},
+    {eventType: type, name: "privacy.cpd.cookies", value: true},
+    {eventType: type, name: "privacy.cpd.downloads", value: true},
+    {eventType: type, name: "privacy.cpd.formdata", value: true},
+    {eventType: type, name: "privacy.cpd.history", value: true},
+    {eventType: type, name: "privacy.cpd.offlineApps", value: false},
+    {eventType: type, name: "privacy.cpd.passwords", value: false},
+    {eventType: type, name: "privacy.cpd.sessions", value: true},
+    {eventType: type, name: "privacy.cpd.siteSettings", value: false}]);
+  return main.dumpPrefs().
+    then(function() { return testMonitor(assert, gEvents); });
+}
+
 exports["test main async"] = function(assert, done) {
   console.log("async test running");
   assert.pass("async Unit test running!");
@@ -136,6 +167,7 @@ exports["test main async"] = function(assert, done) {
     then(function() { return testClearSingleCookie(assert); }).
     //then(function() { return testRejectCookie(assert); }).
     then(function() { return testClearCookies(assert); }).
+    then(function() { return testPrefs(assert); }).
     then(function() {
       httpServer.stop(done);
       return resolve(done());
