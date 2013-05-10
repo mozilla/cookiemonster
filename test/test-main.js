@@ -156,11 +156,53 @@ function testPrefs(assert) {
     then(function() { return testMonitor(assert, gEvents); });
 }
 
+// An HTTP handler that loads a page with a social widget in it
+function socialLoaded(aRequest, aResponse) {
+  aResponse.setStatusLine(aRequest.httpVersion, 200, "OK");
+  aResponse.setHeader("Content-Type", "text/html", false);
+  aResponse.write("<html><head><script src=\"//http://connect.facebook.net/en_US/all.js\"></script></head><body></body></html>");
+}
+
+// Test that we record social widgets loading.
+function testSocialWidgetsLoaded(assert) {
+  console.log("testSocialWidgetsLoaded");
+  gEvents.push({
+                 eventType: kEvents.SOCIAL_WIDGET_LOADED,
+                 widget: "connect.facebook.net",
+                 referrer: "localhost",
+               });
+  let aUrl = "http://localhost:4444/socialloaded";
+  return doNav(aUrl).then(function() { return testMonitor(assert, gEvents); });
+}
+
+// An HTTP handler that loads a fake share url
+function shareURL(aRequest, aResponse) {
+  aResponse.setStatusLine(aRequest.httpVersion, 200, "OK");
+  aResponse.setHeader("Content-Type", "text/html", false);
+  aResponse.write("<html><head></head><body>SHARE!</body></html>");
+}
+
+// Test that we record a 'share url' being used.
+function testShareURLUsed(assert) {
+  console.log("testShareURLUsed");
+  gEvents.push({
+                 eventType: kEvents.SHARE_URL_LOADED,
+                 shareURL: "localhost",
+                 referrer: null,
+               });
+
+  let aUrl = "http://localhost:4444/share";
+  return doNav(aUrl).then(function() { return testMonitor(assert, gEvents); });
+}
+
 exports["test main async"] = function(assert, done) {
   console.log("async test running");
   assert.pass("async Unit test running!");
   let httpServer = new nsHttpServer();
   httpServer.registerPathHandler("/setcookie", setCookie);
+  httpServer.registerPathHandler("/socialloaded", socialLoaded);
+  httpServer.registerPathHandler("/share", shareURL);
+
   httpServer.start(4444);
   testSetCookie(assert).
     then(function() { return testReadCookie(assert); }).
@@ -168,6 +210,8 @@ exports["test main async"] = function(assert, done) {
     //then(function() { return testRejectCookie(assert); }).
     then(function() { return testClearCookies(assert); }).
     then(function() { return testPrefs(assert); }).
+    then(function() { return testSocialWidgetsLoaded(assert); }).
+    then(function() { return testShareURLUsed(assert); }).
     then(function() {
       httpServer.stop(done);
       return resolve(done());
