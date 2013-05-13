@@ -21,6 +21,12 @@
       "title": "Report metrics",
       "name": "enable_reporting",
       "value": false
+    },
+    {
+      "type": "bool",
+      "title": "Enable all events",
+      "name": "enable_all_events",
+      "value": true
     }
   ],
   "volo": {
