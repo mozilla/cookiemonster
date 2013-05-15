@@ -1,6 +1,9 @@
-var main = require("main");
+const events = require("sdk/system/events");
+var main = require("./main");
+var cookiemonster = require("./cookiemonster");
+const { defer, resolve, promised, all } = require("sdk/core/promise");
 
-const kEvents = main.kEvents;
+const kEvents = cookiemonster.kEvents;
 const { Cc, Ci, Cu, Cr } = require("chrome");
 const tabs = require("sdk/tabs");
 const prefs = require("sdk/preferences/service");
@@ -16,39 +19,41 @@ XPCOMUtils.defineLazyServiceGetter(Services, "cookiemgr",
 
 let { nsHttpServer } = require("sdk/test/httpd");
 let monitor = main.monitor;
-const { defer, resolve, promised } = require("sdk/core/promise");
 let gEvents = [];
 
-// Tests that we recorded the events that we expected.
-function testMonitor(assert, expectedEvents) {
-  console.log("testMonitor");
-  return monitor.upload("http://example.com", {simulate: true}).
-    then(function checkExpectedEvents(response) {
-      console.log("Checking expected events");
-      // Oh man, this is awful -- this throws BLOCKED [IDBVersionChangeEvent]
-      // but just ignore it, since the clear seems to actually work.
-      //monitor.clear().then(function() { console.log("it worked"); },
-      //                     function() { console.log("it didn't work"); });
-      let deferred = defer();
-      let events = JSON.parse(response.content).events;
-      console.log("EVENTS", JSON.stringify(events));
-      console.log("expectedEvents", JSON.stringify(expectedEvents));
-      assert.equal(expectedEvents.length, events.length, "Lengths don't match");
-      for (let i = 0; i < events.length; ++i) {
-        let actual = events[i];
-        let expected = expectedEvents[i];
-        for (key in actual) {
-          if (key != "timestamp" && key != "eventstoreid" && key != "success") {
-            assert.equal(expected[key], actual[key], "Keys don't match");
-          }
-        }
+
+// Returns a promise that resolves when we see the event that we expect
+function expectEvent(expected) {
+  let deferred = defer();
+  let checkEvent = function(actual) {
+    let match = true;
+    for (key in actual) {
+      if (key != "timestamp" && key != "eventstoreid" &&
+          expected[key] != actual[key]) {
+          match = false;
+          break;
       }
-      assert.pass("Got expected events");
+    }
+    if (match) {
+      assert.pass("Found a match", JSON.stringify(actual));
       deferred.resolve(true);
-      return deferred.promise;
-    });
+      // We can stop listening since we found a match
+      events.off(cookiemonster.kSTUDY_NAME, checkEvent);
+    }
+  }
+  events.on(cookiemonster.kSTUDY_NAME, checkEvent);
+  return deferred.promise;
 }
 
+// Returns a promise that resolves when we see all of the events that we expect
+function testMonitor(assert, expectedEvents) {
+  let promiseArray = []
+  for (let i = 0; i < expectedEvents.length; i++) {
+    promiseArray.push(expectEvent(expectedEvents[i]));
+  }
+  return promiseArray;
+}
+  
 // Returns a promise that resolves when the tab is open with the given URL.
 function doNav(aUrl) {
   let deferred = defer();
@@ -80,8 +85,12 @@ function testSetCookie(assert) {
     { eventType: kEvents.COOKIE_ADDED,
       domain: "localhost" }]);
   let aUrl = "http://localhost:4444/setcookie";
-  return doNav(aUrl).
-    then(function() { return testMonitor(assert, gEvents); });
+  // Set up all the event listeners
+  let p = testMonitor(assert, gEvents);
+  doNav(aUrl);
+  console.log("all", all);
+  console.log("defer", defer);
+  return promised(p);
 }
 
 // Test that when cookies get sent, we see a READ_COOKIE event
@@ -204,7 +213,10 @@ exports["test main async"] = function(assert, done) {
   httpServer.registerPathHandler("/share", shareURL);
 
   httpServer.start(4444);
-  testSetCookie(assert).
+  let p = testSetCookie(assert);
+  console.log("testSetCookie", p);
+  p.
+/*
     then(function() { return testReadCookie(assert); }).
     then(function() { return testClearSingleCookie(assert); }).
     //then(function() { return testRejectCookie(assert); }).
@@ -212,6 +224,7 @@ exports["test main async"] = function(assert, done) {
     then(function() { return testPrefs(assert); }).
     then(function() { return testSocialWidgetsLoaded(assert); }).
     then(function() { return testShareURLUsed(assert); }).
+*/
     then(function() {
       httpServer.stop(done);
       return resolve(done());
