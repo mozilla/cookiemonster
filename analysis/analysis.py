@@ -22,16 +22,76 @@ def get_cookie_data():
 def set_cookie_histogram(cookie_data):
 
     set_cookie_count = []
-
+    
     for obj in cookie_data:
         if obj["data"]["eventType"] == "set-cookie":
             set_cookie_count.append(int(obj["data"]["count"]))
-
+            
     h = numpy.histogram(set_cookie_count)
-    return h
+    return h, set_cookie_count
 
 # Do this with expiry times, domains via a map->numbers
 # 
+
+def make_social_widget_data(cookie_data):
+    """Make SOCIAL_WIDGET data pie-chartable"""
+    domain_widget_map = {}
+    domain_widgets = []
+    widgets = []
+    for obj in cookie_data:
+        if obj["data"]:
+            try:
+                if obj["data"]["eventType"] == "SOCIAL_WIDGET_LOADED":
+                    print("SOCIAL_WIDGET: ")
+                    if obj["data"]["widget"] not in widgets:
+                        wid = {"widget": obj["data"]["widget"], "value": 1}
+                        domain_widgets.append(wid)
+                        w = obj["data"]["widget"]
+                        domain_widget_map[w] = 1 
+                        widgets.append(w)
+                    else:
+                        w = obj["data"]["widget"]
+                        for widge in domain_widgets:
+                            print(widge)
+                            print(widge["widget"])
+                            if widge["widget"] == w:
+                                widge["value"] = widge["value"] + 1
+
+            except Exception, ex:
+                print(ex)
+                continue
+    return domain_widgets
+
+
+def make_share_widget_data(cookie_data):
+    """Make SHARE_WIDGET data pie-chartable"""
+    domain_widget_map = {}
+    domain_widgets = []
+    widgets = []
+    for obj in cookie_data:
+        if obj["data"]:
+            try:
+                if obj["data"]["eventType"] == "SHARE_URL_LOADED":
+                    print("SHARE_URL: ")
+                    if obj["data"]["shareURL"] not in widgets:
+                        wid = {"shareURL": obj["data"]["shareURL"], "value": 1}
+                        domain_widgets.append(wid)
+                        w = obj["data"]["shareURL"]
+                        domain_widget_map[w] = 1 
+                        widgets.append(w)
+                    else:
+                        w = obj["data"]["shareURL"]
+                        for widge in domain_widgets:
+                            print(widge)
+                            print(widge["shareURL"])
+                            if widge["shareURL"] == w:
+                                widge["value"] = widge["value"] + 1
+
+            except Exception, ex:
+                print(ex)
+                continue
+    return domain_widgets
+
 
 def make_domain_map(cookie_data):
     """Map out the domains so we can reference them by number"""
@@ -61,8 +121,6 @@ def make_domain_pair_map(cookie_data, domain_map):
             try:
                 pair = "&".join([obj["data"]["domain"], obj["data"]["referrer"],])
                 if pair not in pairs:
-                    # XXXddahl: we might need all raw data for the domain pair histogram!
-                    print(pair)
                     pairs.append(pair)
                     dp_map[i] = pair
                     pair_counts[pair] = 1 
@@ -72,7 +130,6 @@ def make_domain_pair_map(cookie_data, domain_map):
             except Exception as err:
                 print(err)
                 continue
-    pprint(pair_counts)
     return dp_map, pairs, pair_counts
 
 
@@ -91,29 +148,72 @@ def domain_histogram(domain_map):
 
 def expiry_histogram(cookie_data):
     maxage = []
+    js_data = []
     for obj in cookie_data:
         try:
             if obj["data"]["maxage"]:
                 #print(obj["data"]["maxage"])
                 maxage.append(int(obj["data"]["maxage"]))
+                js_data.append(str(obj["data"]["maxage"]))
         except:
             continue
 
     h = numpy.histogram(maxage)
-    return h
+    return h, js_data
 
-def build_json_data_for_js(cookie_data):
+def convert_histogram_to_json(hist):
+    jhist = {"id": [], "values": []}
+    for id in hist[0]:
+        jhist["id"].append(id)
+
+    for val in hist[1]:
+        jhist["values"].append(val)
+
+    return jhist
+
+def build_json_data_for_js():
     """Build and output to disk JSON data that brows JS can use in visualization """
+    data = {}
+    cd = get_cookie_data()
+    data["cookie_data"] = cd
+    data["social_widget_loaded"] = make_social_widget_data(cd)
+    data["share_urls"] = make_share_widget_data(cd)
+    sch, set_cookie_count = set_cookie_histogram(cd)
+    data["set_cookie_histogram"] = convert_histogram_to_json(sch)
+    data["set_cookie_count"] = set_cookie_count
+    dm, domains = make_domain_map(cd)
+    data["domain_map"] = dm
+    dpm, pairs, pair_counts = make_domain_pair_map(cd, dm)
+    data["domain_pair_map"] = dpm
+    data["domain_pairs"] = pairs
+    data["domain_pair_counts"] = pair_counts
+    dph = domain_pair_histogram(dpm)
+    data["domain_pair_histogram"] = convert_histogram_to_json(dph)
     
+    dh = domain_histogram(dm)
+    data["domain_histogram"] = convert_histogram_to_json(dh)
 
+    eh, js_data = expiry_histogram(cd)
+    data["expiry_histogram"] = convert_histogram_to_json(eh)
+
+    _str = json.dumps(data, sort_keys=True, indent=2, separators=(',', ': '))
+    
+    f = open("cm_data.json", "w")
+    f.write(_str)
+    f.close()
+
+    return _str
+    
+    
 if __name__ == "__main__":
     cd = get_cookie_data()
     sch = set_cookie_histogram(cd)
     dm, domains = make_domain_map(cd)
     dh = domain_histogram(dm)
-    eh = expiry_histogram(cd)
+    eh, js_data = expiry_histogram(cd)
     dpm, pairs, pair_counts = make_domain_pair_map(cd, dm)
     dph = domain_pair_histogram(dpm)
+    swd = make_social_widget_data(cd)
     print("set-cookie histogram:")
     pprint(sch)
     print("domain histogram:")
@@ -137,3 +237,5 @@ if __name__ == "__main__":
         _domains.append(dpm[id])
     dph = (_domains, dph[1],)
     pprint(dph)
+    print("SOCIAL_WIDGET_DATA: ")
+    pprint(swd)
