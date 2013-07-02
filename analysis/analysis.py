@@ -8,14 +8,17 @@ from pprint import pprint
 
 def get_cookie_data():
 
-    study_data_string = open("data.json")    
+    study_data_string = open("bigdata.json")    
     data = json.load(study_data_string)
     cookie_data = []
 
-    for obj in data:
-        if obj["msg"]: 
-            if obj["msg"] == u"cookiemonster":
-                cookie_data.append(obj)
+    for obj_ in data:
+        if obj_["events"]:
+            evts = obj_["events"]
+            for obj in  evts:
+                if obj["msg"]: 
+                    if obj["msg"] == u"cookiemonster":
+                        cookie_data.append(obj)
     return cookie_data
 
 
@@ -42,7 +45,7 @@ def make_social_widget_data(cookie_data):
         if obj["data"]:
             try:
                 if obj["data"]["eventType"] == "SOCIAL_WIDGET_LOADED":
-                    print("SOCIAL_WIDGET: ")
+                    # print("SOCIAL_WIDGET: ")
                     if obj["data"]["widget"] not in widgets:
                         wid = {"widget": obj["data"]["widget"], "value": 1}
                         domain_widgets.append(wid)
@@ -52,8 +55,8 @@ def make_social_widget_data(cookie_data):
                     else:
                         w = obj["data"]["widget"]
                         for widge in domain_widgets:
-                            print(widge)
-                            print(widge["widget"])
+                            # print(widge)
+                            # print(widge["widget"])
                             if widge["widget"] == w:
                                 widge["value"] = widge["value"] + 1
 
@@ -72,7 +75,7 @@ def make_share_widget_data(cookie_data):
         if obj["data"]:
             try:
                 if obj["data"]["eventType"] == "SHARE_URL_LOADED":
-                    print("SHARE_URL: ")
+                    # print("SHARE_URL: ")
                     if obj["data"]["shareURL"] not in widgets:
                         wid = {"shareURL": obj["data"]["shareURL"], "value": 1}
                         domain_widgets.append(wid)
@@ -82,8 +85,8 @@ def make_share_widget_data(cookie_data):
                     else:
                         w = obj["data"]["shareURL"]
                         for widge in domain_widgets:
-                            print(widge)
-                            print(widge["shareURL"])
+                            # print(widge)
+                            # print(widge["shareURL"])
                             if widge["shareURL"] == w:
                                 widge["value"] = widge["value"] + 1
 
@@ -196,7 +199,7 @@ def build_json_data_for_js():
     eh, js_data = expiry_histogram(cd)
     data["expiry_histogram"] = convert_histogram_to_json(eh)
 
-    _str = json.dumps(data, sort_keys=True, indent=2, separators=(',', ': '))
+    _str = json.dumps(data, sort_keys=True, separators=(',', ':'))
     
     f = open("cm_data.json", "w")
     f.write(_str)
@@ -214,28 +217,12 @@ if __name__ == "__main__":
     dpm, pairs, pair_counts = make_domain_pair_map(cd, dm)
     dph = domain_pair_histogram(dpm)
     swd = make_social_widget_data(cd)
-    print("set-cookie histogram:")
-    pprint(sch)
-    print("domain histogram:")
-    #pprint(dh)
     _domains = []
     for id in dh[0]:
         _domains.append(dm[id])
     dh3 = (_domains, dh[1],)
-    pprint(dh3)
-    print("expiry histogram:")
-    pprint(eh)
-    print("domian pair map:")
-    pprint(dpm)
-    print("domain pairs:")
-    pprint(pairs)
-    print("pair_counts:")
-    pprint(pair_counts)
-    print("domain_pair_histogram:")
     _domains = []
     for id in dph[0]:
         _domains.append(dpm[id])
     dph = (_domains, dph[1],)
-    pprint(dph)
-    print("SOCIAL_WIDGET_DATA: ")
-    pprint(swd)
+
