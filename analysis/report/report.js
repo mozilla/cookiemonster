@@ -306,8 +306,6 @@
    var legend;
    var chartData = CMData.social_widget_loaded;
 
-   console.log(chartData);
-
    AmCharts.ready(function() {
                     // PIE CHART
                     chart = new AmCharts.AmPieChart();
@@ -331,8 +329,6 @@
    var legend;
    var chartData = CMData.share_urls;
 
-   console.log(chartData);
-
    AmCharts.ready(function() {
                     // PIE CHART
                     chart = new AmCharts.AmPieChart();
@@ -351,14 +347,25 @@
                   });
  })();
 
-
 ////////////
-// Helpers
+// Totals
 ////////////
+$(document).ready(function totals(){
+   var totalEvents = CMData.cookie_data.length;
+   var totalUserSessions = CMData.total_user_sessions;
+   var totalSocialWidgetsLoaded = 0;
+   for (var idx in CMData.social_widget_loaded) {
+     totalSocialWidgetsLoaded = totalSocialWidgetsLoaded +
+       CMData.social_widget_loaded[idx].value;
+   }
 
-if (!Number.toFixed) {
-  Number.prototype.toFixed = function (n) {
-    return Math.round(this*Math.pow(10, n)) / Math.pow(10, n);
-  };
-}
-
+   var totalShareURLsLoaded = 0;
+   for (var idx in CMData.share_urls) {
+     totalShareURLsLoaded = totalShareURLsLoaded +
+       CMData.share_urls[idx].value;
+   }
+   $("#totalUserSessions").text(totalUserSessions);
+   $("#totalCookieEvents").text(totalEvents);
+   $("#totalWidgetsLoaded").text(totalSocialWidgetsLoaded);
+   $("#totalWidgetsUsed").text(totalShareURLsLoaded);
+});

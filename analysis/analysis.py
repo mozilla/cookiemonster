@@ -11,15 +11,16 @@ def get_cookie_data():
     study_data_string = open("bigdata.json")    
     data = json.load(study_data_string)
     cookie_data = []
-
+    user_sessions = 0
     for obj_ in data:
+        user_sessions += 1
         if obj_["events"]:
             evts = obj_["events"]
             for obj in  evts:
                 if obj["msg"]: 
                     if obj["msg"] == u"cookiemonster":
                         cookie_data.append(obj)
-    return cookie_data
+    return cookie_data, user_sessions
 
 
 def set_cookie_histogram(cookie_data):
@@ -177,8 +178,9 @@ def convert_histogram_to_json(hist):
 def build_json_data_for_js():
     """Build and output to disk JSON data that brows JS can use in visualization """
     data = {}
-    cd = get_cookie_data()
+    cd, us = get_cookie_data()
     data["cookie_data"] = cd
+    data["total_user_sessions"] = us
     data["social_widget_loaded"] = make_social_widget_data(cd)
     data["share_urls"] = make_share_widget_data(cd)
     sch, set_cookie_count = set_cookie_histogram(cd)
@@ -198,8 +200,8 @@ def build_json_data_for_js():
 
     eh, js_data = expiry_histogram(cd)
     data["expiry_histogram"] = convert_histogram_to_json(eh)
-
-    _str = json.dumps(data, sort_keys=True, separators=(',', ':'))
+    _str = "var CMData = "
+    _str = _str + json.dumps(data, sort_keys=True, separators=(',', ':'))
     
     f = open("cm_data.json", "w")
     f.write(_str)
@@ -209,7 +211,7 @@ def build_json_data_for_js():
     
     
 if __name__ == "__main__":
-    cd = get_cookie_data()
+    cd, us = get_cookie_data()
     sch = set_cookie_histogram(cd)
     dm, domains = make_domain_map(cd)
     dh = domain_histogram(dm)
