@@ -37,6 +37,25 @@ def set_cookie_histogram(cookie_data):
 # Do this with expiry times, domains via a map->numbers
 # 
 
+def cookie_changed(cookie_data):
+    changed = []
+    deleted = []
+    rejected = []
+    
+    for obj in cookie_data:
+        if obj["data"]:
+            try:
+                if obj["data"]["eventType"] == "cookie-deleted":
+                    deleted.append(obj["data"])
+                elif obj["data"]["eventType"] == "cookie-changed":
+                    changed.append(obj["data"])
+                elif obj["data"]["eventType"] == "cookie-rejected":
+                    rejected.append(obj["data"])
+            except Exception, ex:
+                print ex
+
+    return changed, deleted, rejected
+
 def make_social_widget_data(cookie_data):
     """Make SOCIAL_WIDGET data pie-chartable"""
     domain_widget_map = {}
@@ -179,7 +198,12 @@ def build_json_data_for_js():
     """Build and output to disk JSON data that brows JS can use in visualization """
     data = {}
     cd, us = get_cookie_data()
-    data["cookie_data"] = cd
+    # data["cookie_data"] = cd
+    changed, deleted, rejected = cookie_changed(cd)
+    data["changed"] = changed
+    data["deleted"] = deleted
+    data["rejected"] = rejected
+    data["total_cookie_events"] = len(cd)
     data["total_user_sessions"] = us
     data["social_widget_loaded"] = make_social_widget_data(cd)
     data["share_urls"] = make_share_widget_data(cd)
