@@ -253,44 +253,44 @@
    var chart2;
 
    var chartData2 = [{
-                       domains: domain_map2[ids[0]],
-                       value: values2[0]
+                       domains: values2[0],
+                       value: ids[0]
                      },
                      {
-                       domains: domain_map2[ids[1]],
-                       value: values2[1]
+                       domains: values2[1],
+                       value: ids[1]
                      },
                      {
-                       domains: domain_map2[ids[2]],
-                       value: values2[2]
+                       domains: values2[2],
+                       value: ids[2]
                      },
                      {
-                       domains: domain_map2[ids[3]],
-                       value: values2[3]
+                       domains: values2[3],
+                       value: ids[3]
                      },
                      {
-                       domains: domain_map2[ids[4]],
-                       value: values2[4]
+                       domains: values2[4],
+                       value: ids[4]
                      },
                      {
-                       domains: domain_map2[ids[5]],
-                       value: values2[5]
+                       domains: values2[5],
+                       value: ids[5]
                      },
                      {
-                       domains: domain_map2[ids[6]],
-                       value: values2[6]
+                       domains: values2[6],
+                       value: ids[6]
                      },
                      {
-                       domains: domain_map2[ids[7]],
-                       value: values2[7]
+                       domains: values2[7],
+                       value: ids[7]
                      },
                      {
-                       domains: domain_map2[ids[8]],
-                       value: values2[8]
+                       domains: values2[8],
+                       value: ids[8]
                      },
                      {
-                       domains: domain_map2[ids[9]],
-                       value: values2[9]
+                       domains: values2[9],
+                       value: ids[9]
                      }
                     ];
 
