@@ -4,9 +4,63 @@ import errno
 import json
 import sys
 import numpy
+import csv
 from pprint import pprint
 
+csv.field_size_limit(sys.maxsize)
+
 def get_cookie_data():
+    file_path = "../raw-127.txt"
+    cm_file_path = "../raw-collected.json"
+    cm_data_file = open(cm_file_path, "write")
+    cm_data_file.write("[")
+    myfileobj = open(file_path, "read")
+    csv_read = csv.reader(myfileobj, dialect=csv.excel_tab)
+    users = []
+    events = 0
+    pref_count = 0
+    for line in csv_read:
+        if line[3]:
+            if line[3] == "cookiemonster":
+                if line[0] not in users:
+                    users.append(line[0])
+                events += 1
+                try:
+                    print(json.loads(line[6])["data"]["eventType"])
+                except:
+                    pass
+                cm_data_file.write(line[6])
+                cm_data_file.write(", ")
+            elif line[3] == "micropilot-user-events":
+                if line[4] == "startup-shutdown":
+                    if line[0] not in users:
+                        # Do not keep prefs of users not in the cookie study
+                        continue
+                    _obj = json.loads(line[6])
+                    try:
+                        if _obj["data"]["prefs"]:
+                            obj = { "msg": "cookiemonster", 
+                                    "data": {"prefs": _obj["data"]["prefs"]}
+                                  }
+                            prefs = json.dumps(obj)
+                            print("prefs")
+                            cm_data_file.write(prefs)
+                            cm_data_file.write(", ")
+                            pref_count += 1
+                    except:
+                        pass
+    cm_data_file.write('{"msg": "null"}]')
+    print("user count: %s" % len(users))
+    print("events: %s" % events)
+    print("prefs count: %s" % pref_count)
+    print("user ids: %s" % users)
+    cm_data_file.close()
+    _data = open(cm_file_path, "read")
+    data = json.load(_data)
+    return data, len(users)
+
+
+def _get_cookie_data():
 
     study_data_string = open("bigdata.json")    
     data = json.load(study_data_string)
@@ -28,9 +82,11 @@ def set_cookie_histogram(cookie_data):
     set_cookie_count = []
     
     for obj in cookie_data:
-        if obj["data"]["eventType"] == "set-cookie":
-            set_cookie_count.append(int(obj["data"]["count"]))
-            
+        try:
+            if obj["eventType"] == "set-cookie":
+                set_cookie_count.append(int(obj["count"]))
+        except KeyError, e:
+            print(e)
     h = numpy.histogram(set_cookie_count)
     return h, set_cookie_count
 
@@ -43,16 +99,15 @@ def cookie_changed(cookie_data):
     rejected = []
     
     for obj in cookie_data:
-        if obj["data"]:
-            try:
-                if obj["data"]["eventType"] == "cookie-deleted":
-                    deleted.append(obj["data"])
-                elif obj["data"]["eventType"] == "cookie-changed":
-                    changed.append(obj["data"])
-                elif obj["data"]["eventType"] == "cookie-rejected":
-                    rejected.append(obj["data"])
-            except Exception, ex:
-                print ex
+        try:
+            if obj["eventType"] == "cookie-deleted":
+                deleted.append(obj)
+            elif obj["eventType"] == "cookie-changed":
+                changed.append(obj)
+            elif obj["eventType"] == "cookie-rejected":
+                rejected.append(obj)
+        except Exception, ex:
+            print ex
 
     return changed, deleted, rejected
 
@@ -62,18 +117,18 @@ def make_social_widget_data(cookie_data):
     domain_widgets = []
     widgets = []
     for obj in cookie_data:
-        if obj["data"]:
+        if obj:
             try:
-                if obj["data"]["eventType"] == "SOCIAL_WIDGET_LOADED":
+                if obj["eventType"] == "SOCIAL_WIDGET_LOADED":
                     # print("SOCIAL_WIDGET: ")
-                    if obj["data"]["widget"] not in widgets:
-                        wid = {"widget": obj["data"]["widget"], "value": 1}
+                    if obj["widget"] not in widgets:
+                        wid = {"widget": obj["widget"], "value": 1}
                         domain_widgets.append(wid)
-                        w = obj["data"]["widget"]
+                        w = obj["widget"]
                         domain_widget_map[w] = 1 
                         widgets.append(w)
                     else:
-                        w = obj["data"]["widget"]
+                        w = obj["widget"]
                         for widge in domain_widgets:
                             # print(widge)
                             # print(widge["widget"])
@@ -92,18 +147,18 @@ def make_share_widget_data(cookie_data):
     domain_widgets = []
     widgets = []
     for obj in cookie_data:
-        if obj["data"]:
+        if obj:
             try:
-                if obj["data"]["eventType"] == "SHARE_URL_LOADED":
+                if obj["eventType"] == "SHARE_URL_LOADED":
                     # print("SHARE_URL: ")
-                    if obj["data"]["shareURL"] not in widgets:
-                        wid = {"shareURL": obj["data"]["shareURL"], "value": 1}
+                    if obj["shareURL"] not in widgets:
+                        wid = {"shareURL": obj["shareURL"], "value": 1}
                         domain_widgets.append(wid)
-                        w = obj["data"]["shareURL"]
+                        w = obj["shareURL"]
                         domain_widget_map[w] = 1 
                         widgets.append(w)
                     else:
-                        w = obj["data"]["shareURL"]
+                        w = obj["shareURL"]
                         for widge in domain_widgets:
                             # print(widge)
                             # print(widge["shareURL"])
@@ -122,10 +177,10 @@ def make_domain_map(cookie_data):
     domains = []
     i = 0
     for obj in cookie_data:
-        if obj["data"]:
+        if obj:
             try:
-                if obj["data"]["domain"] not in domains:
-                    d = obj["data"]["domain"]
+                if obj["domain"] not in domains:
+                    d = obj["domain"]
                     domain_map[i] = d
                     domains.append(d)
                     i += 1
@@ -140,9 +195,9 @@ def make_domain_pair_map(cookie_data, domain_map):
     pair_counts = {}
     i = 0
     for obj in cookie_data:
-        if obj["data"]:
+        if obj:
             try:
-                pair = "&".join([obj["data"]["domain"], obj["data"]["referrer"],])
+                pair = "&".join([obj["domain"], obj["referrer"],])
                 if pair not in pairs:
                     pairs.append(pair)
                     dp_map[i] = pair
@@ -174,10 +229,10 @@ def expiry_histogram(cookie_data):
     js_data = []
     for obj in cookie_data:
         try:
-            if obj["data"]["maxage"]:
+            if obj["maxage"]:
                 #print(obj["data"]["maxage"])
-                maxage.append(int(obj["data"]["maxage"]))
-                js_data.append(str(obj["data"]["maxage"]))
+                maxage.append(int(obj["maxage"]))
+                js_data.append(str(obj["maxage"]))
         except:
             continue
 

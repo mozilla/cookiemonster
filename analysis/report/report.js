@@ -394,7 +394,7 @@
 // Totals
 ////////////
 $(document).ready(function totals(){
-   var totalEvents = CMData.cookie_data.length;
+   // var totalEvents = CMData.cookie_data.length;
    var totalUserSessions = CMData.total_user_sessions;
    var totalSocialWidgetsLoaded = 0;
    for (var idx in CMData.social_widget_loaded) {
@@ -408,7 +408,7 @@ $(document).ready(function totals(){
        CMData.share_urls[idx].value;
    }
    $("#totalUserSessions").text(totalUserSessions);
-   $("#totalCookieEvents").text(totalEvents);
+   // $("#totalCookieEvents").text(totalEvents);
    $("#totalWidgetsLoaded").text(totalSocialWidgetsLoaded);
    $("#totalWidgetsUsed").text(totalShareURLsLoaded);
 });
