@@ -1,6 +1,21 @@
 #!/usr/bin/python
 
+# Processing the entire cookiemonster study dataset with Hadoop and python...
+# The first job that was run to reduce the micropilot data down to just our cookie data was:
+# bash -x /home/glind/secrettestpilotweb/hadoop_processing/more/search-user-action2.sh "-1.msg=~cookiemonster" cookiemonsterdata
+# Which created a cookiemonsterdata Hadoop dataset, use: hdfs dfs -ls /user/ddahl/cookiemonsterdata
+#     ... in order to view the .snappy files list 
+
+# In order to stream this reduced dataset (it is now only 4.4 GB of JSON:)) use this command:
+# A=cookiemonsterdata; hdfs dfs -text "$A"/*snappy
+
+# In order to run the now modified analysis scripts you do this (which cuts out only the JSON strings, 1 per line):
 # A=cookiemonsterdata; hdfs dfs -text "$A"/*snappy | cut -f3- | process_cookie_data.py > cookie_data.json
+
+# TODO: some glue code for the result data to generate the histograms with numpy
+# TODO: need number of total user sessions, another hadoop job should be run for this number
+# TODO: need unique user count and corresponding prefs dump
+# How do 3rd party cookie counts differ between users with restricted cookie prefs vs. default prefs?
 
 import sys
 import json
@@ -147,11 +162,24 @@ def share_widgets(js):
 
 
 def test():
+    """A very small dataset is provided in process_cookie_data-test.txt in order to test each function in this module"""
     test_file = open("process_cookie_data-test.txt", "read")
     for line in test_file:
         js = json.loads(line)
         process_data(js)
     write_output(data)
+    # TODO: read output, check it for correct data
+
+
+def generate_web_output_js():
+    """Generate histogram data and CMData global dataset for the web report"""
+    try:
+        import numpy
+        # set-cookie histogram
+        # maxage historgram
+        
+    except:
+        sys.stderr.write("Cannot import numpy, quitting.")
 
 
 if __name__ == "__main__":
