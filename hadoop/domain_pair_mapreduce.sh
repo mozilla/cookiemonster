@@ -1,15 +1,16 @@
 #!/bin/bash
 set -e
 set -o nounset
+set -x
 
-BASE=domains
+BASE=domain_pairs
 OUT="/user/$(whoami)/$BASE"
 echo 'hdfs outdirectory:' $OUT
 
-hdfs dfs -rm -r "$OUT" || true 
+hdfs dfs -rm -r "$OUT"
 STREAMING=/opt/cloudera/parcels/CDH/lib/hadoop-0.20-mapreduce/contrib/streaming/*jar
 HERE=`dirname ${0}`
-M="${HERE}/domain_mapper.py"
+M="${HERE}/domain_pair_mapper.py"
 R="${HERE}/counter_reducer.py"
 hadoop jar ${STREAMING} \
  -file "$M" \
