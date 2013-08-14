@@ -34,6 +34,3 @@ for line in sys.stdin:
 
 # at the end dump a final time
 dump()
-
-# Dump the total count at the end
-print "super_total\t%d" % super_total
