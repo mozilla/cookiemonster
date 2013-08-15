@@ -18,30 +18,33 @@
 # How do 3rd party cookie counts differ between users with restricted cookie prefs vs. default prefs?
 
 import sys
-import json
+try:
+    import simplejson as json
+except:
+    import json
 
 data = {
-    "set_cookie_count": [],
-    "maxage": [],
+    "set_cookie_count": set(),
+    "maxage": set(),
     "domain_map": {},
-    "domains": [],
+    "domains": set(),
     "domain_map_i": 0,
     "dp_map": {},
-    "pairs": [],
+    "pairs": set(),
     "pair_counts": {},
     "domain_pair_map_i": 0,
     "domain_widget_map": {},
-    "domain_widgets": [],
-    "widgets": [],
+    "domain_widgets": set(),
+    "widgets": set(),
     "share_widget_map": {},
-    "share_domain_widgets": [],
-    "share_widgets": []
+    "share_domain_widgets": set(),
+    "share_widgets": set()
 }
 
 def set_cookie_count(js):
     try:
         if js["eventType"] == "set-cookie":
-            data["set_cookie_count"].append(int(js["count"]))
+            data["set_cookie_count"].add(int(js["count"]))
     except KeyError, e:
         sys.stderr.write("KeyError in line: %s" % json.dumps(js))
     
@@ -71,17 +74,25 @@ def process_data(js):
 
 def write_output(data):
     file = open("output.json", "write")
-    file.write(json.dumps(data))
+    final = data
+    final["set_cookie_count"] = convert_set(data["set_cookie_count"])
+    final["maxage"] = convert_set(data["maxage"])
+    final["domains"] = None # do not need this data for now
+    final["pairs"] = None # do not need this data for now
+    final["domain_widgets"] = convert_set(data["domain_widgets"])
+    final["widgets"] = convert_set(data["widgets"])
+    final["share_domain_widgets"] = convert_set(data["share_domain_widgets"])
+    final["share_widgets"] = convert_set(data["share_widgets"])
+
+    file.write(json.dumps(final))
     file.flush()
     file.close()
 
 
 def expiry_data(js):
-    maxage = []
-
     try:
         if js["maxage"]:
-            data["maxage"].append(int(js["maxage"]))
+            data["maxage"].add(int(js["maxage"]))
     except:
         pass
 
@@ -89,9 +100,9 @@ def expiry_data(js):
 def domain_pair_map(js):
     i = data["domain_pair_map_i"]
     try:
-        pair = "&".join([js["domain"], js["referrer"],])
+        pair = ":".join([js["domain"], js["referrer"],])
         if pair not in data["pairs"]:
-            data["pairs"].append(pair)
+            data["pairs"].add(pair)
             data["dp_map"][i] = pair
             data["pair_counts"][pair] = 1 
             i += 1
@@ -99,7 +110,6 @@ def domain_pair_map(js):
             data["pair_counts"][pair] = data["pair_counts"][pair] + 1
     except Exception, e:
         sys.stderr.write(str(e))
-        pass
 
 
 def domain_map(js):
@@ -107,13 +117,11 @@ def domain_map(js):
     i = data["domain_map_i"]
     try:
         if js["domain"] not in data["domains"]:
-            d = js["domain"]
-            data["domain_map"][i] = d
-            data["domains"].append(d)
+            data["domain_map"][i] = js["domain"]
+            data["domains"].add(js["domain"])
             i += 1
     except Exception, e:
         sys.stderr.write(str(e))
-        pass
 
 
 def social_widgets(js):
@@ -124,10 +132,10 @@ def social_widgets(js):
     try:
         if js["widget"] not in widgets:
             wid = {"widget": js["widget"], "value": 1}
-            domain_widgets.append(wid)
+            domain_widgets.add(wid)
             w = js["widget"]
             domain_widget_map[w] = 1 
-            widgets.append(w)
+            widgets.add(w)
         else:
             w = js["widget"]
             for widge in domain_widgets:
@@ -147,10 +155,10 @@ def share_widgets(js):
         if js["eventType"] == "SHARE_URL_LOADED":
             if js["shareURL"] not in share_widgets:
                 wid = {"shareURL": js["shareURL"], "value": 1}
-                share_domain_widgets.append(wid)
+                share_domain_widgets.add(wid)
                 w = js["shareURL"]
                 share_widget_map[w] = 1 
-                share_widgets.append(w)
+                share_widgets.add(w)
             else:
                 w = js["shareURL"]
                 for widge in share_domain_widgets:
@@ -159,16 +167,6 @@ def share_widgets(js):
 
     except Exception, e:
         sys.stdout.write(str(e))
-
-
-def test():
-    """A very small dataset is provided in process_cookie_data-test.txt in order to test each function in this module"""
-    test_file = open("process_cookie_data-test.txt", "read")
-    for line in test_file:
-        js = json.loads(line)
-        process_data(js)
-    write_output(data)
-    # TODO: read output, check it for correct data
 
 
 def generate_web_output_js():
@@ -180,6 +178,23 @@ def generate_web_output_js():
         
     except:
         sys.stderr.write("Cannot import numpy, quitting.")
+
+
+def convert_set(s):
+    l = []
+    for k in s:
+        l.append(k)
+    return l
+
+
+def test():
+    """A very small dataset is provided in process_cookie_data-test.txt in order to test each function in this module"""
+    test_file = open("process_cookie_data-test.txt", "read")
+    for line in test_file:
+        js = json.loads(line)
+        process_data(js)
+    write_output(data)
+    # TODO: read output, check it for correct data
 
 
 if __name__ == "__main__":
