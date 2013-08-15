@@ -25,8 +25,8 @@ data = {
     "people":  Counter(),
     "social_widget": Counter(),
     "share_url": Counter(),
-    "total_count": Counter(),
-    "events": Counter(),
+    "total_count": 0,
+    "events": 0,
 }
 
 samplers = {
@@ -35,9 +35,6 @@ samplers = {
 }
 
 def set_cookie_count(ii, person, js):
-    print(js["eventType"])
-    print("\n\n")
-    
     try:
         if js["eventType"] == "set-cookie":
             data["first"][js["domain"]] += js['count']
@@ -47,12 +44,12 @@ def set_cookie_count(ii, person, js):
             data["people"][person] +=  js['count']  
             samplers['maxage'].sample(js['maxage'], ii)
             samplers["set_cookie_count"].sample(int(js["count"]), ii)
-            # data['total_count'] += js["count"]
+            data['total_count'] += js["count"]
         elif js["eventType"] == "SOCIAL_WIDGET_LOADED":
             data["social_widget"][js["widget"]] += 1
         elif js["eventType"] == "SHARE_URL_LOADED":
             data["share_url"][js["shareURL"]] += 1
-        # data['events'] += 1
+        data['events'] += 1
     except KeyError, e:
         sys.stderr.write("KeyError: %s\n" % str(e))
 
