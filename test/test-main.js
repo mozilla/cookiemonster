@@ -1,6 +1,9 @@
-var main = require("main");
+const events = require("sdk/system/events");
+var main = require("./main");
+var cookiemonster = require("./cookiemonster");
+const { defer, resolve, promised, all } = require("sdk/core/promise");
 
-const kEvents = main.kEvents;
+const kEvents = cookiemonster.kEvents;
 const { Cc, Ci, Cu, Cr } = require("chrome");
 const tabs = require("sdk/tabs");
 const prefs = require("sdk/preferences/service");
@@ -15,40 +18,41 @@ XPCOMUtils.defineLazyServiceGetter(Services, "cookiemgr",
                                    "nsICookieManager2");
 
 let { nsHttpServer } = require("sdk/test/httpd");
-let monitor = main.monitor;
-const { defer, resolve, promised } = require("sdk/core/promise");
-let gEvents = [];
 
-// Tests that we recorded the events that we expected.
-function testMonitor(assert, expectedEvents) {
-  console.log("testMonitor");
-  return monitor.upload("http://example.com", {simulate: true}).
-    then(function checkExpectedEvents(response) {
-      console.log("Checking expected events");
-      // Oh man, this is awful -- this throws BLOCKED [IDBVersionChangeEvent]
-      // but just ignore it, since the clear seems to actually work.
-      //monitor.clear().then(function() { console.log("it worked"); },
-      //                     function() { console.log("it didn't work"); });
-      let deferred = defer();
-      let events = JSON.parse(response.content).events;
-      console.log("EVENTS", JSON.stringify(events));
-      console.log("expectedEvents", JSON.stringify(expectedEvents));
-      assert.equal(expectedEvents.length, events.length, "Lengths don't match");
-      for (let i = 0; i < events.length; ++i) {
-        let actual = events[i];
-        let expected = expectedEvents[i];
-        for (key in actual) {
-          if (key != "timestamp" && key != "eventstoreid" && key != "success") {
-            assert.equal(expected[key], actual[key], "Keys don't match");
-          }
-        }
+// Returns a promise that resolves when we see the event that we expect
+function expectEvent(expected) {
+  console.log("expecting");
+  let deferred = defer();
+  let checkEvent = function(actual) {
+    let match = true;
+    for (key in actual) {
+      if (key != "timestamp" && key != "eventstoreid" &&
+          expected[key] != actual[key]) {
+          match = false;
+          break;
       }
-      assert.pass("Got expected events");
+    }
+    if (match) {
+      assert.pass("Found a match", JSON.stringify(actual));
       deferred.resolve(true);
-      return deferred.promise;
-    });
+      // We can stop listening since we found a match
+      events.off(cookiemonster.kSTUDY_NAME, checkEvent);
+    }
+  }
+  events.on(cookiemonster.kSTUDY_NAME, checkEvent);
+  return deferred.promise;
 }
 
+// Returns a promise that resolves when we see all of the events that we expect
+function testMonitor(assert, expectedEvents) {
+  console.log("testing monitor", JSON.stringify(expectedEvents));
+  let promiseArray = []
+  for (let i = 0; i < expectedEvents.length; i++) {
+    promiseArray.push(function() { return expectEvent(expectedEvents[i]); });
+  }
+  return all(promiseArray);
+}
+  
 // Returns a promise that resolves when the tab is open with the given URL.
 function doNav(aUrl) {
   let deferred = defer();
@@ -71,17 +75,19 @@ function setCookie(aRequest, aResponse) {
 // Test that when we visit a page that sets a cookie we see a SET_COOKIE event
 function testSetCookie(assert) {
   console.log("testSetCookie");
-  gEvents = gEvents.concat([
+  let events = [
     { eventType: kEvents.SET_COOKIE,
       maxage: 60,
       count: 1,
       referrer: "localhost",
       domain: "localhost" },
     { eventType: kEvents.COOKIE_ADDED,
-      domain: "localhost" }]);
+      domain: "localhost" }];
   let aUrl = "http://localhost:4444/setcookie";
-  return doNav(aUrl).
-    then(function() { return testMonitor(assert, gEvents); });
+  // Set up all the event listeners
+  let p = testMonitor(assert, events);
+  doNav(aUrl);
+  return p;
 }
 
 // Test that when cookies get sent, we see a READ_COOKIE event
@@ -91,20 +97,19 @@ function testReadCookie(assert) {
   let e = { eventType: kEvents.READ_COOKIE,
             count: 1,
             referrer: "localhost", domain: "localhost" };
-  // Why 3? 2 reads happen between the previous call to testMonitor and this
-  // test starts, not sure why
-  gEvents = gEvents.concat([e, e, e])
-  return doNav(aUrl).
-    then(function() { return testMonitor(assert, gEvents); });
+  let p = testMonitor(assert, [e]);
+  doNav(aUrl);
+  return p;
 }
 
 // Test that we notice when a single cookie is deleted
 function testClearSingleCookie(assert) {
   console.log("testClearSingleCookie");
-  gEvents.push({ eventType: kEvents.COOKIE_DELETED, domain: "localhost" });
+  let e = { eventType: kEvents.COOKIE_DELETED, domain: "localhost" };
+  let p = testMonitor(assert, [e]);
   // Remove the cookie and block access for localhost
   Services.cookiemgr.remove("localhost", "cookie1", "/", true);
-  return testMonitor(assert, gEvents);
+  return p;
 }
 
 // Test that when we reject cookies, we get rejection events
@@ -120,16 +125,17 @@ function testRejectCookie(assert) {
 // Test that we notice when all cookies are deleted
 function testClearCookies(assert) {
   console.log("testClearCookies");
-  gEvents.push({ eventType: kEvents.ALL_COOKIES_DELETED });
+  e = { eventType: kEvents.ALL_COOKIES_DELETED };
+  let p = testMonitor(assert, [e]);
   Services.cookiemgr.removeAll();
-  return testMonitor(assert, gEvents);
+  return p;
 }
 
 // Test that we record preferences accurately.
 function testPrefs(assert) {
-  console.log("testPrefs");
+  console.log("testPrefs woot!");
   let type = kEvents.PREFERENCE;
-  gEvents = gEvents.concat([
+  let events = [
     {eventType: type, name: "browser.privatebrowsing.autostart", value: false},
     {eventType: type, name: "network.cookie.cookieBehavior", value: 3},
     {eventType: type, name: "network.cookie.lifetimePolicy", value: 0},
@@ -151,9 +157,10 @@ function testPrefs(assert) {
     {eventType: type, name: "privacy.cpd.offlineApps", value: false},
     {eventType: type, name: "privacy.cpd.passwords", value: false},
     {eventType: type, name: "privacy.cpd.sessions", value: true},
-    {eventType: type, name: "privacy.cpd.siteSettings", value: false}]);
-  return main.dumpPrefs().
-    then(function() { return testMonitor(assert, gEvents); });
+    {eventType: type, name: "privacy.cpd.siteSettings", value: false}];
+  let p = testMonitor(assert, events);
+  cookiemonster.dumpPrefs();
+  return p;
 }
 
 // An HTTP handler that loads a page with a social widget in it
@@ -166,13 +173,13 @@ function socialLoaded(aRequest, aResponse) {
 // Test that we record social widgets loading.
 function testSocialWidgetsLoaded(assert) {
   console.log("testSocialWidgetsLoaded");
-  gEvents.push({
-                 eventType: kEvents.SOCIAL_WIDGET_LOADED,
-                 widget: "connect.facebook.net",
-                 referrer: "localhost",
-               });
+  let e = { eventType: kEvents.SOCIAL_WIDGET_LOADED,
+            widget: "connect.facebook.net",
+            referrer: "localhost" };
   let aUrl = "http://localhost:4444/socialloaded";
-  return doNav(aUrl).then(function() { return testMonitor(assert, gEvents); });
+  let p = testMonitor(assert, [e]);
+  doNav(aUrl);
+  return p;
 }
 
 // An HTTP handler that loads a fake share url
@@ -185,14 +192,14 @@ function shareURL(aRequest, aResponse) {
 // Test that we record a 'share url' being used.
 function testShareURLUsed(assert) {
   console.log("testShareURLUsed");
-  gEvents.push({
-                 eventType: kEvents.SHARE_URL_LOADED,
-                 shareURL: "localhost",
-                 referrer: null,
-               });
+  let e = { eventType: kEvents.SHARE_URL_LOADED,
+            shareURL: "localhost",
+            referrer: null };
 
   let aUrl = "http://localhost:4444/share";
-  return doNav(aUrl).then(function() { return testMonitor(assert, gEvents); });
+  let p = testMonitor(assert, [e]);
+  doNav(aUrl);
+  return p;
 }
 
 exports["test main async"] = function(assert, done) {
